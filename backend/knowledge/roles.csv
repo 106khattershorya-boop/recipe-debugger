@@ -1,0 +1,22 @@
+canonical,aliases,roles,category,source,notes
+all-purpose flour,maida|plain flour|refined wheat flour,flour_base|structure,,,Team heuristic; role depends on recipe context.
+wheat flour,whole wheat flour|atta,flour_base|structure,,,Team heuristic; role depends on recipe context.
+khoya,mawa|khoa,dairy_base|fat|moisture,,,Team heuristic; composition varies by product.
+milk powder,dried milk|powdered milk,dairy_base|structure,,,Team heuristic; role depends on recipe context.
+semolina,sooji|suji,flour_base|structure,,,Team heuristic; role depends on recipe context.
+baking soda,sodium bicarbonate,leavening,,,Team heuristic; actual effect depends on recipe acidity and method.
+baking powder,,leavening,,,Team heuristic; product composition may vary.
+ghee,clarified butter,fat|flavor,,,Team heuristic; role depends on recipe context.
+butter,,fat|flavor|moisture,,,Team heuristic; role depends on recipe context.
+neutral oil,vegetable oil|canola oil|sunflower oil,fat|moisture,,,Team heuristic; oil type varies.
+sugar,granulated sugar|white sugar,sweetness|structure,,,Team heuristic; role depends on recipe context.
+egg,,binding|structure|moisture,,,Team heuristic; role depends on recipe context.
+milk,,moisture|dairy_base,,,Team heuristic; role depends on recipe context.
+water,,moisture,,,Team heuristic; role depends on recipe context.
+yogurt,curd|plain yogurt,moisture|acidity|dairy_base,,,Team heuristic; product acidity varies.
+salt,table salt,salt,,,Team heuristic; amount and type vary.
+cardamom,green cardamom,flavor,,,Team heuristic; no specific effect inferred.
+rose water,,flavor,,,Team heuristic; no specific effect inferred.
+saffron,,flavor|color,,,Team heuristic; no specific effect inferred.
+vanilla extract,vanilla essence,flavor,,,Team heuristic; products vary.
+cocoa powder,cocoa,flavor|color,,,Team heuristic; product acidity and fat vary.

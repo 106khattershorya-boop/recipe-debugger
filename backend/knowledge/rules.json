@@ -1,0 +1,47 @@
+{
+  "version": "prototype-0.1",
+  "rules": [
+    {
+      "id": "baking_low_moisture_screen",
+      "title": "Prototype flag: low measured moisture relative to flour",
+      "family": "baked_goods",
+      "feature": "moisture_to_flour",
+      "operator": "lt",
+      "threshold": 0.45,
+      "symptom_ids": ["dry", "crumbly"],
+      "weight": 0.6,
+      "suspect_role": "moisture",
+      "fix_template": "Review measured moisture additions against a tested formula before changing them.",
+      "source": "team_heuristic",
+      "source_reference": null
+    },
+    {
+      "id": "baking_high_fat_screen",
+      "title": "Prototype flag: high measured fat relative to flour",
+      "family": "baked_goods",
+      "feature": "fat_to_flour",
+      "operator": "gt",
+      "threshold": 0.55,
+      "symptom_ids": ["greasy"],
+      "weight": 0.6,
+      "suspect_role": "fat",
+      "fix_template": "Review measured fat additions and compare with a tested formula before changing them.",
+      "source": "team_heuristic",
+      "source_reference": null
+    },
+    {
+      "id": "baking_low_leavening_screen",
+      "title": "Prototype flag: low measured leavening relative to flour",
+      "family": "baked_goods",
+      "feature": "leavening_to_flour",
+      "operator": "lt",
+      "threshold": 0.01,
+      "symptom_ids": ["dense", "did_not_rise"],
+      "weight": 0.6,
+      "suspect_role": "leavening",
+      "fix_template": "Check the leavener type, amount, and condition against a tested formula before changing them.",
+      "source": "team_heuristic",
+      "source_reference": null
+    }
+  ]
+}

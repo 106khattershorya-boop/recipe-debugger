@@ -12,6 +12,12 @@ class RecipeIngredient(BaseModel):
     canonical_name: str | None = None
     grams: float | None = Field(default=None, ge=0)
 
+    recipedb_ingredient_id: str | None = None
+    flavordb_entity_id: str | None = None
+    flavordb_entity_name: str | None = None
+    flavordb_entity_url: str | None = None
+    flavordb_linked: bool | None = None
+
 
 class RecipeStep(BaseModel):
     model_config = ConfigDict(extra="forbid")

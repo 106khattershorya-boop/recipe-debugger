@@ -19,9 +19,9 @@ class Settings(BaseSettings):
 
     llm_api_key: str | None = None
     llm_base_url: str | None = None
+    llm_model: str | None = None
 
-    recipedb_api_key: str | None = None
-    flavordb_api_key: str | None = None
+    foodoscope_api_key: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",
