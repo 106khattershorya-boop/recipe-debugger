@@ -14,7 +14,11 @@ class FollowupQuestion:
 _QUESTIONS_BY_FEATURE = {
     "fat_to_flour": "What amounts did you use for the flour and fat ingredients?",
     "moisture_to_flour": "What amounts did you use for the flour and liquid ingredients?",
-    "leavening_to_flour": "Did you use a leavener, and how much?",
+    "leavening_to_flour": (
+        "Your ingredient list has no measured leavener. If you used one, "
+        "reply with its amount and name, like '5 g baking powder' or "
+        "'5 g baking soda'. Otherwise answer 'no'."
+    ),
     "sweetness_to_flour": "What amounts did you use for the flour and sugar?",
 }
 
@@ -25,18 +29,31 @@ def choose_followup_question(
     evaluations: list[RuleEvaluation],
     limit: int = 3,
 ) -> FollowupQuestion | None:
-    """Choose the most common missing feature among leading unknown rules."""
+    """Choose a useful question for leading unknown or zero-leavener rules."""
     rules_by_id = {rule.id: rule for rule in rules}
-    unknown_rule_ids = {
-        evaluation.rule_id
-        for evaluation in evaluations
-        if evaluation.status == "unknown"
+    evaluations_by_id = {
+        evaluation.rule_id: evaluation for evaluation in evaluations
     }
 
     candidates: list[RuleDefinition] = []
     for rule_id in top_rule_ids[:limit]:
         rule = rules_by_id.get(rule_id)
-        if rule is not None and rule_id in unknown_rule_ids:
+        evaluation = evaluations_by_id.get(rule_id)
+
+        if rule is None or evaluation is None:
+            continue
+
+        if evaluation.status == "unknown":
+            candidates.append(rule)
+            continue
+
+        # A zero measured ratio may mean the recipe text omitted an ingredient.
+        # Ask the cook to confirm rather than treating the omission as certain.
+        if (
+            evaluation.status == "fired"
+            and rule.feature == "leavening_to_flour"
+            and evaluation.measured_value == 0
+        ):
             candidates.append(rule)
 
     if not candidates:

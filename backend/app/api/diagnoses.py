@@ -13,6 +13,7 @@ from app.core.diagnostician import diagnose_recipe
 from app.core.features import compute_recipe_features
 from app.core.repair import apply_repair
 from app.core.rule_pack import load_rule_pack
+from app.core.rule_screen import compare_rule_screens, rules_for_family
 from app.db.mongo import get_database
 from app.llm.client import LLMClientError, explain_diagnosis
 from app.models.diagnosis import SuggestedChange
@@ -267,8 +268,15 @@ async def preview_counterfactual(
             for change in request.changes
         ]
         repair_result = apply_repair(recipe, suggested_changes)
+        rule_pack = load_rule_pack()
     except (ValidationError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        logger.exception("Could not load the rule pack for what-if preview.")
+        raise HTTPException(
+            status_code=500,
+            detail="Diagnosis rules are unavailable.",
+        ) from exc
 
     original_features = compute_recipe_features(recipe)
     updated_features = compute_recipe_features(repair_result.recipe)
@@ -285,13 +293,32 @@ async def preview_counterfactual(
         for feature_name in feature_names
     }
 
+    reported_symptoms = diagnosis_data.get("symptoms", [])
+    if not isinstance(reported_symptoms, list):
+        reported_symptoms = []
+
+    applicable_rules = rules_for_family(
+        recipe.family,
+        rule_pack.rules,
+    )
+    rule_screen_comparison = compare_rule_screens(
+        before=original_features,
+        after=updated_features,
+        rules=applicable_rules,
+        reported_symptoms=[
+            symptom for symptom in reported_symptoms
+            if isinstance(symptom, str)
+        ],
+    )
+
     warnings = list(
         dict.fromkeys(
             [
                 *original_features.warnings,
                 *updated_features.warnings,
-                "This preview recalculates recipe ratios only; it does not "
-                "predict finished taste, texture, or cooking outcomes.",
+                "Rule screen changes are comparisons against the current "
+                "rule pack; they are not probabilities or predictions of "
+                "cooking outcomes.",
             ]
         )
     )
@@ -303,5 +330,6 @@ async def preview_counterfactual(
         "counterfactual_recipe": repair_result.recipe.model_dump(mode="json"),
         "changes": [asdict(item) for item in repair_result.diff],
         "feature_comparison": feature_comparison,
+        "rule_screen_comparison": rule_screen_comparison,
         "warnings": warnings,
     }

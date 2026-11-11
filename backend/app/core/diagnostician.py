@@ -9,7 +9,12 @@ from app.core.roles import resolve_ingredient
 from app.core.rules import RuleEvaluation, evaluate_rules
 from app.core.rule_pack import RulePack
 from app.core.scoring import CandidateScoreInput, score_candidates
-from app.models.diagnosis import Diagnosis, Hypothesis, Suspect
+from app.models.diagnosis import (
+    Diagnosis,
+    Hypothesis,
+    RuleCheck,
+    Suspect,
+)
 from app.models.graph import GraphEdge, GraphNode, RecipeGraph
 from app.models.recipe import Recipe
 
@@ -21,12 +26,40 @@ class DiagnosisResult:
     warnings: tuple[str, ...]
 
 
+def _normalize_family(value: str) -> str:
+    """Normalize family labels for consistent matching."""
+    return " ".join(value.casefold().strip().replace("-", " ").split())
+
+
+def _rules_for_family(
+    recipe_family: str | None,
+    rule_pack: RulePack,
+):
+    """Select only matching family rules and explicitly general rules."""
+    general_families = {"general", "*"}
+    normalized_recipe_family = (
+        _normalize_family(recipe_family) if recipe_family else ""
+    )
+
+    return [
+        rule
+        for rule in rule_pack.rules
+        if (
+            _normalize_family(rule.family) in general_families
+            or (
+                normalized_recipe_family
+                and _normalize_family(rule.family) == normalized_recipe_family
+            )
+        )
+    ]
+
+
 def diagnose_recipe(
     recipe: Recipe,
     reported_symptoms: list[str],
     rule_pack: RulePack,
 ) -> DiagnosisResult:
-    """Build evidence-aware, ranked hypotheses from a recipe and rule pack."""
+    """Build evidence-aware hypotheses and matching rule checks."""
     if not recipe.recipe_id:
         raise ValueError("The recipe must be saved before diagnosis.")
 
@@ -36,19 +69,52 @@ def diagnose_recipe(
         raise ValueError("At least one non-empty symptom is required.")
 
     features: RecipeFeatures = compute_recipe_features(recipe)
+    applicable_rules = _rules_for_family(recipe.family, rule_pack)
     evaluations = evaluate_rules(
-        rule_pack.rules,
+        applicable_rules,
         features,
         set(symptoms),
     )
 
-    rules_by_id = {rule.id: rule for rule in rule_pack.rules}
+    rules_by_id = {rule.id: rule for rule in applicable_rules}
     evaluations_by_id = {
         evaluation.rule_id: evaluation for evaluation in evaluations
     }
 
+    rule_checks = []
+    for rule in applicable_rules:
+        evaluation = evaluations_by_id[rule.id]
+        if evaluation.status == "symptom_mismatch":
+            continue
+
+        note = None
+        if evaluation.status == "unknown":
+            if evaluation.measured_value is None:
+                note = "The required ratio could not be calculated."
+            else:
+                note = (
+                    "Some ingredient amounts or roles are unknown; "
+                    "the measured ratio may be partial."
+                )
+
+        rule_checks.append(
+            RuleCheck(
+                rule_id=rule.id,
+                title=rule.title,
+                feature=rule.feature,
+                operator=rule.operator,
+                threshold=rule.threshold,
+                measured_value=evaluation.measured_value,
+                status=evaluation.status,
+                source=rule.source,
+                source_reference=rule.source_reference,
+                note=note,
+            )
+        )
+
     fired_evaluations = [
-        evaluation for evaluation in evaluations
+        evaluation
+        for evaluation in evaluations
         if evaluation.status == "fired"
     ]
     scored_candidates = score_candidates(
@@ -64,10 +130,6 @@ def diagnose_recipe(
             for evaluation in fired_evaluations
         ]
     )
-    shares_by_rule = {
-        candidate.rule_id: candidate.relative_share
-        for candidate in scored_candidates
-    }
 
     symptom_evidence = [
         user_stated_evidence(
@@ -104,16 +166,27 @@ def diagnose_recipe(
             known_node_ids.add(ratio_node_id)
 
         rule_item = rule_evidence(rule)
+        ratio_roles = {rule.suspect_role, "flour_base"}
+
         for ingredient_index, ingredient in enumerate(
             recipe.ingredients,
             start=1,
         ):
-            role_entry = resolve_ingredient(
-                ingredient.canonical_name or ingredient.name
-            )
+            lookup_name = ingredient.canonical_name or ingredient.name
+            role_entry = resolve_ingredient(lookup_name)
+
+            if (
+                role_entry is None
+                and ingredient.flavordb_linked is True
+                and ingredient.flavordb_entity_name
+            ):
+                role_entry = resolve_ingredient(
+                    ingredient.flavordb_entity_name
+                )
+
             if (
                 role_entry is not None
-                and rule.suspect_role in role_entry.roles
+                and ratio_roles.intersection(role_entry.roles)
             ):
                 graph_edges.append(
                     GraphEdge(
@@ -170,7 +243,7 @@ def diagnose_recipe(
     relevant_rule_ids = [
         rule.id
         for rule in sorted(
-            rule_pack.rules,
+            applicable_rules,
             key=lambda item: item.weight,
             reverse=True,
         )
@@ -178,7 +251,7 @@ def diagnose_recipe(
     ]
     followup = choose_followup_question(
         top_rule_ids=relevant_rule_ids,
-        rules=rule_pack.rules,
+        rules=applicable_rules,
         evaluations=evaluations,
     )
 
@@ -187,11 +260,30 @@ def diagnose_recipe(
         recipe_id=recipe.recipe_id,
         symptoms=symptoms,
         hypotheses=hypotheses,
+        rule_checks=rule_checks,
         followup_question=followup.question if followup else None,
+        followup_question_id=(
+            f"followup:{followup.feature}" if followup else None
+        ),
+        followup_feature=followup.feature if followup else None,
+        followup_rule_ids=(
+            list(followup.related_rule_ids) if followup else []
+        ),
         rule_pack_version=rule_pack.version,
     )
 
     warnings = list(features.warnings)
+
+    if not recipe.family:
+        warnings.append(
+            "Recipe family is missing; family-specific rules were not applied."
+        )
+    elif not applicable_rules:
+        warnings.append(
+            f"No rules are available for recipe family {recipe.family!r}; "
+            "diagnosis is low evidence."
+        )
+
     if hypotheses:
         warnings.append(
             "Hypotheses are ranked leads, not confirmed causes."

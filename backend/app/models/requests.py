@@ -10,6 +10,7 @@ class ParseRecipeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(min_length=1)
+    family: str | None = Field(default=None, max_length=80)
     ingredients_text: str = Field(min_length=1)
     steps_text: str = ""
 

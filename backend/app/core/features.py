@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from app.core.roles import resolve_ingredient
+from app.core.roles import IngredientRole, resolve_ingredient
 from app.core.units import to_base_quantity
 from app.models.recipe import Recipe, RecipeIngredient
 
@@ -34,22 +34,41 @@ def _ingredient_grams(ingredient: RecipeIngredient) -> float | None:
     return None
 
 
+def _resolve_recipe_ingredient(
+    ingredient: RecipeIngredient,
+) -> tuple[IngredientRole | None, bool]:
+    """Resolve directly first; use a linked FlavorDB name only as fallback."""
+    lookup_name = ingredient.canonical_name or ingredient.name
+    role_entry = resolve_ingredient(lookup_name)
+
+    if role_entry is not None:
+        return role_entry, False
+
+    if ingredient.flavordb_linked is True and ingredient.flavordb_entity_name:
+        role_entry = resolve_ingredient(ingredient.flavordb_entity_name)
+        if role_entry is not None:
+            return role_entry, True
+
+    return None, False
+
+
 def compute_recipe_features(recipe: Recipe) -> RecipeFeatures:
-    """Compute role totals and heuristic ratios from known ingredient masses."""
+    """Compute ingredient-role totals and heuristic ratios from known masses."""
     role_totals_g: dict[str, float] = {}
     unmeasured: list[str] = []
     unclassified: list[str] = []
     role_sources: set[str] = set()
+    used_linked_entity_fallback = False
 
     for ingredient in recipe.ingredients:
-        lookup_name = ingredient.canonical_name or ingredient.name
-        role_entry = resolve_ingredient(lookup_name)
+        role_entry, used_linked_entity = _resolve_recipe_ingredient(ingredient)
         grams = _ingredient_grams(ingredient)
 
         if role_entry is None:
             unclassified.append(ingredient.name)
             continue
 
+        used_linked_entity_fallback |= used_linked_entity
         role_sources.add(role_entry.source)
 
         if grams is None:
@@ -82,6 +101,12 @@ def compute_recipe_features(recipe: Recipe) -> RecipeFeatures:
     if role_sources:
         warnings.append(
             "Ingredient roles are team heuristics and may depend on recipe context."
+        )
+
+    if used_linked_entity_fallback:
+        warnings.append(
+            "A linked FlavorDB entity name was used as a fallback for ingredient "
+            "role lookup; the resulting role is still a team heuristic."
         )
 
     if unmeasured:

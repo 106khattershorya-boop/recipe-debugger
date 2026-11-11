@@ -1,0 +1,188 @@
+:root {
+  color-scheme: light;
+  --background: #f4f0e7;
+  --foreground: #292c27;
+  --card: #ffffff;
+  --card-foreground: #292c27;
+  --popover: #ffffff;
+  --popover-foreground: #292c27;
+  --primary: #244b3b;
+  --primary-foreground: #ffffff;
+  --secondary: #e9e3d7;
+  --secondary-foreground: #292c27;
+  --muted: #ebe6dc;
+  --muted-foreground: #706e65;
+  --accent: #d99b65;
+  --accent-foreground: #292c27;
+  --destructive: #a33c2f;
+  --border: #ded8cc;
+  --input: #ded8cc;
+  --ring: #557a66;
+  --radius: 0.85rem;
+}
+
+.dark {
+  color-scheme: dark;
+  --background: #151b17;
+  --foreground: #f2eee4;
+  --card: #202923;
+  --card-foreground: #f2eee4;
+  --popover: #202923;
+  --popover-foreground: #f2eee4;
+  --primary: #78a88a;
+  --primary-foreground: #142019;
+  --secondary: #2a352d;
+  --secondary-foreground: #f2eee4;
+  --muted: #28322b;
+  --muted-foreground: #b7b7a9;
+  --accent: #d99b65;
+  --accent-foreground: #201a14;
+  --destructive: #df8377;
+  --border: #39453c;
+  --input: #39453c;
+  --ring: #78a88a;
+}
+
+html {
+  min-width: 320px;
+  scroll-behavior: smooth;
+  background: var(--background);
+  transition: background-color 180ms ease;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Noto Sans Variable", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition:
+    background-color 180ms ease,
+    color 180ms ease;
+}
+
+h1,
+h2,
+h3,
+.font-editorial {
+  font-family: "Playfair Display Variable", Georgia, serif;
+}
+
+button,
+a,
+input,
+textarea,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  color: #ffffff;
+  background: #244b3b;
+}
+
+.image-fade {
+  background:
+    linear-gradient(180deg, transparent 45%, rgb(24 35 28 / 54%) 100%),
+    linear-gradient(90deg, rgb(24 35 28 / 10%), transparent 55%);
+}
+
+/* Keep the existing editorial palette, adapting its surfaces in dark mode. */
+.dark body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.dark header {
+  background-color: rgb(21 27 23 / 96%);
+  border-color: var(--border);
+}
+
+.dark footer {
+  background-color: #17231c;
+}
+
+.dark .bg-white,
+.dark [class*="bg-white/"] {
+  background-color: var(--card);
+  color: var(--card-foreground);
+}
+
+.dark [class*="bg-[#f4f0e7]"] {
+  background-color: var(--background);
+}
+
+.dark [class*="bg-[#eae5d9]"],
+.dark [class*="bg-[#faf8f3]"],
+.dark [class*="bg-[#f4f0e7]/"] {
+  background-color: #28322b;
+}
+
+.dark [class*="bg-[#fff9f1]"] {
+  background-color: #30271f;
+}
+
+.dark [class*="bg-[#f4e8dc]"],
+.dark [class*="bg-[#f2e1cd]"] {
+  background-color: #3a2d21;
+}
+
+.dark [class*="text-[#292c27]"],
+.dark [class*="text-[#444a42]"],
+.dark [class*="text-[#454a43]"],
+.dark [class*="text-[#50554d]"] {
+  color: #f2eee4;
+}
+
+.dark [class*="text-[#5e6259]"],
+.dark [class*="text-[#64685f]"],
+.dark [class*="text-[#65685f]"],
+.dark [class*="text-[#71736a]"],
+.dark [class*="text-[#777970]"],
+.dark [class*="text-[#806c57]"],
+.dark [class*="text-[#85867f]"],
+.dark [class*="text-[#929187]"] {
+  color: #b7b7a9;
+}
+
+.dark [class*="border-[#244b3b]"],
+.dark [class*="border-[#d99b65]"] {
+  border-color: var(--border);
+}
+
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: #1b241e;
+  color: #f2eee4;
+  border-color: var(--border);
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #969b90;
+}
+
+.dark option {
+  background: #202923;
+  color: #f2eee4;
+}
+
+.dark header a:hover,
+.dark nav a:hover {
+  color: #a7d0b3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

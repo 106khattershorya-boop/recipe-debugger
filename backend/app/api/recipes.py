@@ -159,6 +159,7 @@ async def parse_and_save_recipe(
             name=request.name,
             ingredients_text=request.ingredients_text,
             steps_text=request.steps_text,
+            family=request.family,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

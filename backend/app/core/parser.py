@@ -29,6 +29,29 @@ _QUANTITY_PATTERN = re.compile(
 
 _LIST_PREFIX = re.compile(r"^\s*(?:[-*•]\s*|\d+[.)]\s*)")
 
+_OPERATION_PATTERN = re.compile(
+    r"\b(preheat|knead|ferment|simmer|saute|sauté|"
+    r"combine|whisk|blend|steam|roast|bake|"
+    r"fry|soak|boil|chill|cool|heat|cook|"
+    r"mix|stir|fold|rest|shape)\b",
+    flags=re.IGNORECASE,
+)
+
+_DURATION_PATTERN = re.compile(
+    r"\b(?P<amount>\d+(?:\.\d+)?)\s*"
+    r"(?P<unit>seconds?|secs?|minutes?|mins?|hours?|hrs?)\b",
+    flags=re.IGNORECASE,
+)
+
+_TEMPERATURE_PATTERN = re.compile(
+    r"\b(?P<value>-?\d+(?:\.\d+)?)\s*"
+    r"(?:°\s*)?(?P<unit>c|f)\b"
+    r"|"
+    r"\b(?P<word_value>-?\d+(?:\.\d+)?)\s*degrees?\s+"
+    r"(?P<word_unit>celsius|fahrenheit)\b",
+    flags=re.IGNORECASE,
+)
+
 
 def _parse_amount(raw_amount: str) -> float:
     cleaned = raw_amount.strip()
@@ -138,15 +161,52 @@ def _parse_ingredient_line(
     return ingredient, None
 
 
+def _extract_step_operation(step_text: str) -> str | None:
+    match = _OPERATION_PATTERN.search(step_text)
+    return match.group(1).casefold() if match else None
+
+
+def _extract_duration_minutes(step_text: str) -> float | None:
+    match = _DURATION_PATTERN.search(step_text)
+    if match is None:
+        return None
+
+    amount = float(match.group("amount"))
+    unit = match.group("unit").casefold()
+
+    if unit.startswith(("second", "sec")):
+        return amount / 60
+    if unit.startswith(("hour", "hr")):
+        return amount * 60
+    return amount
+
+
+def _extract_temperature_c(step_text: str) -> float | None:
+    match = _TEMPERATURE_PATTERN.search(step_text)
+    if match is None:
+        return None
+
+    value_text = match.group("value") or match.group("word_value")
+    unit = (match.group("unit") or match.group("word_unit")).casefold()
+    value = float(value_text)
+
+    if unit in {"f", "fahrenheit"}:
+        return round((value - 32) * 5 / 9, 2)
+    return value
+
+
 def parse_recipe_text(
     name: str,
     ingredients_text: str,
     steps_text: str = "",
+    family: str | None = None,
 ) -> Recipe:
-    """Parse simple line-based recipe text into the backend recipe model."""
+    """Parse recipe text, preserving family and explicit step details."""
     recipe_name = name.strip()
     if not recipe_name:
         raise ValueError("Recipe name must not be empty.")
+
+    cleaned_family = family.strip() if family and family.strip() else None
 
     ingredients: list[RecipeIngredient] = []
     warnings: list[str] = []
@@ -171,6 +231,9 @@ def parse_recipe_text(
                 RecipeStep(
                     order=len(steps) + 1,
                     text=cleaned_step,
+                    operation=_extract_step_operation(cleaned_step),
+                    duration_minutes=_extract_duration_minutes(cleaned_step),
+                    temperature_c=_extract_temperature_c(cleaned_step),
                 )
             )
 
@@ -179,6 +242,7 @@ def parse_recipe_text(
 
     return Recipe(
         name=recipe_name,
+        family=cleaned_family,
         ingredients=ingredients,
         steps=steps,
         parse_warnings=warnings,

@@ -7,6 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.diagnoses import router as diagnoses_router
 from app.api.feedback import router as feedback_router
+from app.api.followups import router as followups_router
+from app.api.ingredients import router as ingredients_router
 from app.api.recipes import router as recipes_router
 from app.api.repairs import router as repairs_router
 from app.api.sources import router as sources_router
@@ -71,8 +73,10 @@ app.add_middleware(
 app.include_router(sources_router, prefix=settings.api_prefix)
 app.include_router(recipes_router, prefix=settings.api_prefix)
 app.include_router(diagnoses_router, prefix=settings.api_prefix)
+app.include_router(followups_router, prefix=settings.api_prefix)
 app.include_router(repairs_router, prefix=settings.api_prefix)
 app.include_router(feedback_router, prefix=settings.api_prefix)
+app.include_router(ingredients_router, prefix=settings.api_prefix)
 
 
 @app.get(f"{settings.api_prefix}/health", tags=["health"])

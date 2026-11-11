@@ -5,18 +5,31 @@ from app.models.graph import GraphEdge, GraphNode, RecipeGraph
 from app.models.recipe import Recipe
 
 
+_ALL_INGREDIENTS_PATTERN = re.compile(
+    r"\b(?:all\s+)?the\s+ingredients\b"
+    r"|\b(?:combine|mix|stir|blend|fold|whisk)\s+"
+    r"(?:all\s+)?ingredients\b",
+    flags=re.IGNORECASE,
+)
+
+
 def _ingredient_is_named_in_step(ingredient_name: str, step_text: str) -> bool:
     """Check for a whole-name match, avoiding partial matches inside other words."""
     pattern = rf"(?<!\w){re.escape(ingredient_name)}(?!\w)"
     return re.search(pattern, step_text, flags=re.IGNORECASE) is not None
 
 
+def _step_references_all_ingredients(step_text: str) -> bool:
+    """Return whether the step explicitly refers to ingredients collectively."""
+    return _ALL_INGREDIENTS_PATTERN.search(step_text) is not None
+
+
 def build_recipe_graph(recipe: Recipe, symptoms: list[str]) -> RecipeGraph:
-    """Build a graph using only recipe data and explicit ingredient mentions."""
+    """Build a recipe graph from explicit mentions and listed step order."""
     nodes: list[GraphNode] = []
     edges: list[GraphEdge] = []
-
     ingredient_nodes: list[tuple[str, str, str | None]] = []
+    operation_ids: list[str] = []
 
     for index, ingredient in enumerate(recipe.ingredients, start=1):
         node_id = f"ingredient_{index}"
@@ -40,6 +53,7 @@ def build_recipe_graph(recipe: Recipe, symptoms: list[str]) -> RecipeGraph:
 
     for index, step in enumerate(recipe.steps, start=1):
         operation_id = f"operation_{index}"
+        operation_ids.append(operation_id)
         operation_label = step.operation or f"Step {step.order}: {step.text}"
 
         nodes.append(
@@ -52,12 +66,14 @@ def build_recipe_graph(recipe: Recipe, symptoms: list[str]) -> RecipeGraph:
             )
         )
 
+        collective_reference = _step_references_all_ingredients(step.text)
+
         for ingredient_id, ingredient_name, canonical_name in ingredient_nodes:
             names_to_check = [ingredient_name]
             if canonical_name and canonical_name != ingredient_name:
                 names_to_check.append(canonical_name)
 
-            if any(
+            if collective_reference or any(
                 _ingredient_is_named_in_step(name, step.text)
                 for name in names_to_check
             ):
@@ -68,6 +84,15 @@ def build_recipe_graph(recipe: Recipe, symptoms: list[str]) -> RecipeGraph:
                         kind="USED_IN",
                     )
                 )
+
+    for source_id, target_id in zip(operation_ids, operation_ids[1:]):
+        edges.append(
+            GraphEdge(
+                source_id=source_id,
+                target_id=target_id,
+                kind="FEEDS",
+            )
+        )
 
     for index, symptom in enumerate(symptoms, start=1):
         cleaned_symptom = symptom.strip()
