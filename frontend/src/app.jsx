@@ -1,4 +1,5 @@
-import { Route, Routes } from "react-router";
+import { useEffect } from "react";
+import { Route, Routes, useLocation } from "react-router";
 import SiteFooter from "@/components/layout/SiteFooter.jsx";
 import SiteNavbar from "@/components/layout/SiteNavbar.jsx";
 import AboutPage from "@/pages/AboutPage.jsx";
@@ -8,9 +9,33 @@ import HomePage from "@/pages/Homepage.jsx";
 import HowItWorksPage from "@/pages/HowItWorksPage.jsx";
 import RecipeDetailsPage from "@/pages/RecipeDetailsPage.jsx";
 
+function ScrollToTop() {
+  const { pathname, hash } = useLocation();
+
+  useEffect(() => {
+    if (!hash) {
+      window.scrollTo(0, 0);
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.getElementById(
+        decodeURIComponent(hash.slice(1)),
+      );
+
+      target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [pathname, hash]);
+
+  return null;
+}
+
 function App() {
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <ScrollToTop />
       <SiteNavbar />
       <Routes>
         <Route path="/" element={<HomePage />} />
