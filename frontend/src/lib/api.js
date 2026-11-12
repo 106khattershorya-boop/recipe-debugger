@@ -94,3 +94,29 @@ export function sendFeedback(feedback) {
     body: JSON.stringify(feedback),
   });
 }
+
+export function getRecipeDBRecipes(page = 1, limit = 10) {
+  const params = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  });
+
+  return request(`/sources/recipedb/recipes?${params.toString()}`);
+}
+
+export function searchRecipeDBRecipesByTitle(title) {
+  const params = new URLSearchParams({ title });
+  return request(`/sources/recipedb/search?${params.toString()}`);
+}
+
+export function getRecipeDBRecipe(recipeId) {
+  return request(
+    `/sources/recipedb/recipes/${encodeURIComponent(recipeId)}`,
+  );
+}
+
+export function getFlavorDBEntityMolecules(entityId) {
+  return request(
+    `/sources/flavordb/entities/by-id/${encodeURIComponent(entityId)}/molecules`,
+  );
+}

@@ -20,6 +20,7 @@ import {
   ThumbsUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button.jsx";
+import FaultTrace from "@/components/recipes/FaultTrace.jsx";
 import {
   answerFollowup,
   diagnoseRecipe,
@@ -36,6 +37,8 @@ const symptoms = [
   { label: "Did not rise", value: "did_not_rise" },
   { label: "Greasy", value: "greasy" },
   { label: "Crumbly", value: "crumbly" },
+  { label: "Hard in the centre", value: "hard_in_centre" },
+  { label: "Cracked while frying", value: "cracked_while_frying" },
 ];
 
 const cuisines = [
@@ -107,6 +110,9 @@ function plainWarning(warning) {
   if (text.includes("recipe family is missing")) {
     return "Choose a recipe type to get the checks currently available for that kind of recipe.";
   }
+  if (text.includes("available checks do not cover")) {
+    return "The available checks don’t cover this recipe and result combination yet.";
+  }
   if (text.includes("expected_result is accepted")) {
     return "Your expected result isn’t used in these checks yet.";
   }
@@ -117,7 +123,10 @@ function plainWarning(warning) {
     return "A food database ingredient name helped us look up its likely role. That role is still an estimate.";
   }
   if (text.includes("follow-up answer is user-stated")) {
-    return "We used the amount you provided. We haven’t independently checked it.";
+    return "This is information you reported. We haven’t independently verified it.";
+  }
+  if (text.includes("oil temperature was reported by the cook")) {
+    return "You reported this oil-temperature information. It wasn’t verified or used to change the diagnosis checks.";
   }
   if (text.includes("llm explanation")) {
     return "An extra written explanation isn’t available right now. The recipe checks are unchanged.";
@@ -259,14 +268,18 @@ function DebuggerPage() {
     initialRecipe?.title ?? starterName,
   );
   const [ingredientsText, setIngredientsText] = useState(
-    initialRecipe?.ingredients
-      ?.map((item) => `${item.amount} ${item.name}`)
-      .join("\n") ?? "",
+    initialRecipe?.ingredientsText ??
+      initialRecipe?.ingredients
+        ?.map((item) => `${item.amount} ${item.name}`)
+        .join("\n") ??
+      "",
   );
   const [stepsText, setStepsText] = useState(
-    initialRecipe?.steps
-      ?.map((step, index) => `${index + 1}. ${step}`)
-      .join("\n") ?? "",
+    initialRecipe?.stepsText ??
+      initialRecipe?.steps
+        ?.map((step, index) => `${index + 1}. ${step}`)
+        .join("\n") ??
+      "",
   );
   const [cuisine, setCuisine] = useState(initialRecipe?.cuisine ?? "");
   const [dietaryPreference, setDietaryPreference] = useState("No preference");
@@ -292,8 +305,7 @@ function DebuggerPage() {
   const diagnosis = report?.diagnosis;
   const possibleReasons = diagnosis?.hypotheses ?? [];
   const checks = diagnosis?.rule_checks ?? [];
-  const traceNodes = report?.fault_trace?.nodes ?? [];
-  const traceEdges = report?.fault_trace?.edges ?? [];
+  const faultTrace = report?.fault_trace;
   const ingredientMatches = report?.ingredient_cross_references ?? [];
   const rawWarnings = report?.warnings ?? [];
   const writtenNotes = report?.llm_explanation?.hypotheses ?? [];
@@ -351,6 +363,9 @@ function DebuggerPage() {
         family: recipeFamily || null,
         ingredients_text: ingredientsText.trim(),
         steps_text: stepsText.trim(),
+        ...(initialRecipe?.recipedbProcesses
+          ? { recipedb_processes: initialRecipe.recipedbProcesses }
+          : {}),
       });
 
       const result = await diagnoseRecipe({
@@ -907,7 +922,12 @@ function DebuggerPage() {
                       value={followupValue}
                       onChange={(event) => setFollowupValue(event.target.value)}
                       aria-label="Your answer"
-                      placeholder="For example: 5 g baking powder"
+                      placeholder={
+                        diagnosis.followup_feature ===
+                        "frying_oil_temperature"
+                          ? "For example: 180°C, or “I’m not sure”"
+                          : "For example: 5 g baking powder"
+                      }
                       className="h-11 w-full rounded-xl border border-[#244b3b]/15 bg-white px-4 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/10"
                     />
                     <Button
@@ -927,6 +947,21 @@ function DebuggerPage() {
                       {isAnswering ? "Updating report…" : "Use my answer"}
                     </Button>
                   </form>
+                </SectionCard>
+              )}
+
+              {report.followup_answer?.source ===
+                "Reported by the cook; not independently verified." && (
+                <SectionCard
+                  icon={Info}
+                  eyebrow="Your reported information"
+                  title="Oil temperature"
+                >
+                  <p>You reported: {report.followup_answer.value}</p>
+                  <p className="mt-2 text-xs">
+                    This hasn’t been independently verified and wasn’t used to
+                    change the diagnosis checks.
+                  </p>
                 </SectionCard>
               )}
 
@@ -1380,7 +1415,7 @@ function DebuggerPage() {
                             rel="noreferrer"
                             className="inline-flex items-center gap-1 text-[10px] font-medium text-primary hover:underline"
                           >
-                            See ingredient
+                            FlavorDB record
                             <ExternalLink size={12} aria-hidden="true" />
                           </a>
                         )}
@@ -1394,43 +1429,14 @@ function DebuggerPage() {
                 </SectionCard>
               )}
 
-              {traceNodes.length > 0 && (
-                <SectionCard
-                  icon={Sparkles}
-                  eyebrow={`${traceNodes.length} recipe details`}
-                  title="Ingredients and steps we looked at"
-                >
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {traceNodes.map((node) => (
-                      <div
-                        key={node.id}
-                        className="flex items-start justify-between gap-3 rounded-lg bg-[#faf8f3] px-3 py-2"
-                      >
-                        <div className="min-w-0">
-                          <p className="text-xs font-medium text-[#292c27]">
-                            {node.label}
-                          </p>
-                          {node.roles?.length > 0 && (
-                            <p className="text-[10px] text-[#85867f]">
-                              May help with: {node.roles.join(", ")}
-                            </p>
-                          )}
-                        </div>
-                        {node.grams !== null && node.grams !== undefined && (
-                          <span className="shrink-0 text-xs text-[#64685f]">
-                            {formatValue(node.grams)} g
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  {traceEdges.length > 0 && (
-                    <p className="mt-3 text-[10px]">
-                      We also mapped how the listed ingredients flow into the
-                      steps you entered.
-                    </p>
-                  )}
-                </SectionCard>
+              {(faultTrace?.nodes?.length > 0 ||
+                faultTrace?.edges?.length > 0) && (
+                <FaultTrace
+                  nodes={faultTrace.nodes ?? []}
+                  edges={faultTrace.edges ?? []}
+                  diagnosis={diagnosis}
+                  recipe={report.recipe}
+                />
               )}
 
               {warnings.length > 0 && (
